@@ -1,5 +1,5 @@
 """Tables. A dining table's state is derived from its current seating; there is deliberately no `state`
-column on tables."""
+column on tables. The real wait is stamped once and never recomputed."""
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
@@ -38,3 +38,6 @@ class Party(Base):
     state: Mapped[str] = mapped_column(String(12))                     # waiting | seated | left | cleared
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     position: Mapped[int] = mapped_column(Integer)
+    quoted_minutes: Mapped[int] = mapped_column(Integer)               # the promise, stored at join
+    quoted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    waited_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)   # the truth, stamped at seating
