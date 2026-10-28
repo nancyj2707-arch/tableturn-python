@@ -1,0 +1,44 @@
+"""Every test gets its own SQLite file, a fixed clock it can move, and the seed files from the repo."""
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from tableturn.app import create_app
+from tableturn.clock import FixedClock, get_clock
+from tableturn.settings import Settings
+
+ROOT = Path(__file__).resolve().parent.parent
+T0 = datetime(2026, 9, 27, 19, 10, tzinfo=timezone.utc)      # Sunday, ten past seven: the Kulkarnis arrive
+
+
+def make_settings(tmp_path: Path, **overrides) -> Settings:
+    db = (tmp_path / "tableturn-test.db").as_posix()
+    values = {"database_url": f"sqlite:///{db}", "seed_dir": str(ROOT / "seed"),
+              "default_quote_minutes": 40}
+    values.update(overrides)
+    return Settings(_env_file=None, **values)
+
+
+@pytest.fixture
+def clock() -> FixedClock:
+    return FixedClock(T0)
+
+
+@pytest.fixture
+def settings(tmp_path) -> Settings:
+    return make_settings(tmp_path)
+
+
+@pytest.fixture
+def app(settings, clock):
+    app = create_app(settings)
+    app.dependency_overrides[get_clock] = lambda: clock
+    return app
+
+
+@pytest.fixture
+def client(app):
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c

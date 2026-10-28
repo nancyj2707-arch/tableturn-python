@@ -1,0 +1,43 @@
+"""The floor. A table's state is derived on read from its current seating — `seated` while the party is at
+it, `uncleared` once they have left and nobody has wiped it, `free` otherwise. There is no stored state flag."""
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..clock import Clock
+from ..errors import NoSuchBranch, NoSuchTable
+from ..models import Branch, DiningTable
+from ..schemas import FloorOut, Section, TableOut, TableState
+
+
+def get_branch(session: Session, code: str) -> Branch:
+    branch = session.scalar(select(Branch).where(Branch.code == code))
+    if branch is None:
+        raise NoSuchBranch(f"There is no branch {code!r}")
+    return branch
+
+
+def describe(session: Session, table: DiningTable, clock: Clock) -> TableOut:
+    if table.current_seating_id is None:
+        return TableOut(no=table.no, seats=table.seats, section=table.section, state="free")
+
+
+def list_tables(session: Session, branch_code: str, section: Section | None, state: TableState | None,
+                clock: Clock) -> FloorOut:
+    """The filters arrive already checked against their enums (the router types them), so `free` counts the free
+    tables among those listed."""
+    branch = get_branch(session, branch_code)
+    rows = session.scalars(select(DiningTable).where(DiningTable.branch_id == branch.id).order_by(DiningTable.no)).all()
+    described = [describe(session, t, clock) for t in rows]
+    if section is not None:
+        described = [t for t in described if t.section == section]
+    if state is not None:
+        described = [t for t in described if t.state == state]
+    return FloorOut(branch=branch.code, free=sum(1 for t in described if t.state == "free"), tables=described)
+
+
+def get_table(session: Session, branch_code: str, no: str, clock: Clock) -> TableOut:
+    branch = get_branch(session, branch_code)
+    table = session.scalar(select(DiningTable).where(DiningTable.branch_id == branch.id, DiningTable.no == no))
+    if table is None:
+        raise NoSuchTable(f"There is no table {no!r} in branch {branch.code}")
+    return describe(session, table, clock)
