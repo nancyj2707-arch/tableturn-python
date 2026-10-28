@@ -25,8 +25,16 @@ class NoSuchTable(DomainError):
     status, type, title = 404, "/errors/no-such-table", "No such table"
 
 
-# (status, type, title) of the errors the framework raises rather than a service: 400 for a query parameter that fails validation
-# ("filter values outside the enum are 400"), 404/405 for a path or
+class NoSuchParty(DomainError):
+    status, type, title = 404, "/errors/no-such-party", "No such party"
+
+
+class PartyTooBig(DomainError):
+    status, type, title = 400, "/errors/party-too-big", "No table here could seat that many"
+
+
+# (status, type, title) of the errors the framework raises rather than a service: 422 for a body that fails validation
+# and 400 for a query parameter that does ("filter values outside the enum are 400"), 404/405 for a path or
 # a method the app does not serve (every error is problem+json).
 VALIDATION_BODY = (422, "/errors/validation", "The request body is not valid")
 VALIDATION_QUERY = (400, "/errors/validation", "Invalid filter value")

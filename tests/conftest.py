@@ -42,3 +42,18 @@ def app(settings, clock):
 def client(app):
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
+
+
+@pytest.fixture
+def db(app):
+    """A fresh session factory for looking at rows the API wrote."""
+    return app.state.sessionmaker
+
+
+def join(client, covers=6, name="Kulkarni", phone=None) -> dict:
+    body = {"name": name, "covers": covers}
+    if phone:
+        body["phone"] = phone
+    r = client.post("/waitlist", json=body)
+    assert r.status_code == 201, r.text
+    return r.json()
