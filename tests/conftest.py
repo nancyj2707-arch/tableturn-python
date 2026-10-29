@@ -57,3 +57,15 @@ def join(client, covers=6, name="Kulkarni", phone=None) -> dict:
     r = client.post("/waitlist", json=body)
     assert r.status_code == 201, r.text
     return r.json()
+
+
+def seat(client, party_id, table):
+    return client.post("/seatings", json={"party_id": party_id, "table": table})
+
+
+def seated(client, covers=6, table="T20") -> dict:
+    """join + seat, returning the seating body."""
+    party = join(client, covers)
+    r = seat(client, party["party_id"], table)
+    assert r.status_code == 201, r.text
+    return r.json()

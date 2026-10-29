@@ -63,4 +63,17 @@ class PartyOut(BaseModel):
     quoted_minutes: int
     quoted_at: UtcZ
     waited_minutes: int | None = None
-    
+    table: str | None = None
+
+
+class SeatIn(BaseModel):
+    party_id: str = Field(min_length=2, max_length=12)
+    table: str = Field(min_length=2, max_length=8)
+
+
+class SeatOut(BaseModel):
+    seating_id: str
+    party_id: str
+    table: str
+    seated_at: UtcZ
+    waited_minutes: int

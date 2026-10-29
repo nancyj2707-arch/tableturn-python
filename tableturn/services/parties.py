@@ -1,10 +1,11 @@
 """One party — what they were quoted, what they waited and where they sat."""
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..clock import as_utc
 from ..errors import NoSuchParty
 from ..ids import party_internal, party_public
-from ..models import Branch, Party
+from ..models import Branch, DiningTable, Party, Seating
 from ..schemas import PartyOut
 
 
@@ -13,8 +14,10 @@ def get_party(session: Session, branch: Branch, public_id: str) -> PartyOut:
     party = session.get(Party, internal) if internal is not None else None
     if party is None or party.branch_id != branch.id:
         raise NoSuchParty(f"There is no party {public_id!r} on the {branch.code} list")
+    seating = session.scalar(select(Seating).where(Seating.party_id == party.id).order_by(Seating.id.desc()).limit(1))
+    table_no = session.get(DiningTable, seating.table_id).no if seating is not None else None
     return PartyOut(
         party_id=party_public(party.id), name=party.name, covers=party.covers, state=party.state, position=party.position,
         joined_at=as_utc(party.joined_at), quoted_minutes=party.quoted_minutes, quoted_at=as_utc(party.quoted_at),
-        waited_minutes=party.waited_minutes,
+        waited_minutes=party.waited_minutes, table=table_no,
     )

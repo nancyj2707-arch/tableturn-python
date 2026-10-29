@@ -11,3 +11,7 @@ def party_public(internal_id: int) -> str:
 def party_internal(public_id: str) -> int | None:
     m = _PARTY.match(public_id or "")
     return int(m.group(1)) if m else None
+
+
+def seating_public(internal_id: int) -> str:
+    return f"S{internal_id:03d}"

@@ -23,7 +23,7 @@ class DiningTable(Base):
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"))
     no: Mapped[str] = mapped_column(String(8))
     seats: Mapped[int] = mapped_column(Integer)                        # 2 | 4 | 6
-    section: Mapped[str] = mapped_column(String(16))# Window | Garden | Indoor   
+    section: Mapped[str] = mapped_column(String(16))                   # Window | Garden | Indoor
     current_seating_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -41,3 +41,15 @@ class Party(Base):
     quoted_minutes: Mapped[int] = mapped_column(Integer)               # the promise, stored at join
     quoted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     waited_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)   # the truth, stamped at seating
+
+
+class Seating(Base):
+    __tablename__ = "seatings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"))
+    party_id: Mapped[int] = mapped_column(ForeignKey("parties.id"))
+    table_id: Mapped[int] = mapped_column(ForeignKey("tables.id"))
+    seated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    turn_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)

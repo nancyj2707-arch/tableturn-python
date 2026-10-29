@@ -33,6 +33,18 @@ class PartyTooBig(DomainError):
     status, type, title = 400, "/errors/party-too-big", "No table here could seat that many"
 
 
+class TableTooSmall(DomainError):
+    status, type, title = 409, "/errors/table-too-small", "The table is too small for the party"
+
+
+class AlreadySeated(DomainError):
+    status, type, title = 409, "/errors/already-seated", "The party is already at a table"
+
+
+class TableNotCleared(DomainError):
+    status, type, title = 409, "/errors/table-not-cleared", "The table has not been cleared"
+
+
 # (status, type, title) of the errors the framework raises rather than a service: 422 for a body that fails validation
 # and 400 for a query parameter that does ("filter values outside the enum are 400"), 404/405 for a path or
 # a method the app does not serve (every error is problem+json).
