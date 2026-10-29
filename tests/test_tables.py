@@ -76,3 +76,11 @@ def test_state_filter_shows_the_seated_table_with_party_and_minutes(client, cloc
                                  "party_id": party["party_id"], "seating_id": s.json()["seating_id"], "seated_minutes": 42}
     assert body["free"] == 0
     assert client.get("/branches/Baner/tables").json()["free"] == 21
+
+
+def test_an_uncleared_table_names_its_party_and_seating_but_no_minutes(client):
+    s = seated(client, 2, "T01")
+    assert client.post(f"/seatings/{s['seating_id']}/leave").status_code == 200
+    body = client.get("/branches/Baner/tables/T01").json()
+    assert body == {"no": "T01", "seats": 2, "section": "Window", "state": "uncleared",
+                    "party_id": s["party_id"], "seating_id": s["seating_id"]}

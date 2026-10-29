@@ -1,17 +1,21 @@
-"""Seat a party. Every refusal is raised here, never in a route; every
+"""Seat a party, let it leave, clear the table. Every refusal is raised here, never in a route; every
 change is one transaction."""
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..clock import Clock, minutes_between
 from ..errors import (
+    AlreadyCleared,
+    AlreadyLeft,
     AlreadySeated,
     NoSuchParty,
+    NoSuchSeating,
     NoSuchTable,
+    NotLeftYet,
     TableNotCleared,
     TableTooSmall,
 )
-from ..ids import party_internal, party_public
+from ..ids import party_internal, party_public, seating_internal
 from ..models import Branch, DiningTable, Party, Seating
 
 
@@ -28,6 +32,14 @@ def _table(session: Session, branch: Branch, no: str) -> DiningTable:
     if table is None:
         raise NoSuchTable(f"There is no table {no!r} in branch {branch.code}")
     return table
+
+
+def _seating(session: Session, branch: Branch, public_id: str) -> Seating:
+    internal = seating_internal(public_id)
+    seating = session.get(Seating, internal) if internal is not None else None
+    if seating is None or seating.branch_id != branch.id:
+        raise NoSuchSeating(f"There is no seating {public_id!r}")
+    return seating
 
 
 def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, clock: Clock) -> Seating:
@@ -54,3 +66,34 @@ def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, 
     party.waited_minutes = minutes_between(party.joined_at, now)      # stamped once, never recomputed
     session.commit()
     return seating
+
+
+def leave(session: Session, branch: Branch, seating_public_id: str, clock: Clock) -> Seating:
+    seating = _seating(session, branch, seating_public_id)
+    if seating.left_at is not None:
+        raise AlreadyLeft(f"{seating_public_id} left at {seating.left_at:%H:%M}")
+    now = clock.now()
+    seating.left_at = now
+    party = session.get(Party, seating.party_id)
+    party.state = "left"
+    session.commit()
+    return seating
+
+
+def clear(session: Session, branch: Branch, seating_public_id: str, clock: Clock) -> tuple[Seating, DiningTable]:
+    seating = _seating(session, branch, seating_public_id)
+    if seating.left_at is None:
+        raise NotLeftYet(f"{seating_public_id}: the party has not left; clear comes after leave")
+    if seating.cleared_at is not None:
+        raise AlreadyCleared(f"{seating_public_id} was cleared at {seating.cleared_at:%H:%M}")
+    now = clock.now()
+    table = session.get(DiningTable, seating.table_id)
+    # One transaction — the seating, the table and the party.
+    seating.cleared_at = now
+    seating.turn_minutes = minutes_between(seating.seated_at, seating.left_at)   # what the table earned, not what the server took
+    table.current_seating_id = None
+    table.cleared_at = now
+    party = session.get(Party, seating.party_id)
+    party.state = "cleared"
+    session.commit()
+    return seating, table

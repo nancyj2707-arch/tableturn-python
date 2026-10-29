@@ -29,6 +29,10 @@ class NoSuchParty(DomainError):
     status, type, title = 404, "/errors/no-such-party", "No such party"
 
 
+class NoSuchSeating(DomainError):
+    status, type, title = 404, "/errors/no-such-seating", "No such seating"
+
+
 class PartyTooBig(DomainError):
     status, type, title = 400, "/errors/party-too-big", "No table here could seat that many"
 
@@ -43,6 +47,18 @@ class AlreadySeated(DomainError):
 
 class TableNotCleared(DomainError):
     status, type, title = 409, "/errors/table-not-cleared", "The table has not been cleared"
+
+
+class AlreadyLeft(DomainError):
+    status, type, title = 409, "/errors/already-left", "The party has already left"
+
+
+class NotLeftYet(DomainError):
+    status, type, title = 409, "/errors/not-left-yet", "The party has not left yet"
+
+
+class AlreadyCleared(DomainError):
+    status, type, title = 409, "/errors/already-cleared", "The table has already been cleared"
 
 
 # (status, type, title) of the errors the framework raises rather than a service: 422 for a body that fails validation
