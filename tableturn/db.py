@@ -35,3 +35,9 @@ def init_db(engine: Engine) -> None:
 
 def make_sessionmaker(engine: Engine) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def ping(session: Session) -> None:
+    """Health: a round trip through the session. A database that cannot be reached raises, and the one 500
+    handler answers."""
+    session.execute(text("SELECT 1"))

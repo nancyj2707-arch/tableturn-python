@@ -5,7 +5,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
+
 from tableturn.handlers import PROBLEM
+from tableturn.routers import get_session
 
 ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "tableturn"
@@ -19,13 +23,14 @@ EXPECTED = {
     ("/waitlist", "post"): ("waitlist", {"400": {"/errors/party-too-big"}, "422": {"/errors/validation"}}),
     ("/seatings", "post"): ("seatings", {"404": {"/errors/no-such-party", "/errors/no-such-table"},
                                          "409": {"/errors/table-too-small", "/errors/already-seated",
-                                                                                                  "/errors/table-not-cleared", "/errors/overtaking"},
+                                                 "/errors/table-not-cleared", "/errors/overtaking"},
                                          "422": {"/errors/validation"}}),
     ("/seatings/{seating_id}/leave", "post"): ("seatings", {"404": {"/errors/no-such-seating"}, "409": {"/errors/already-left"}}),
     ("/seatings/{seating_id}/clear", "post"): ("seatings", {"404": {"/errors/no-such-seating"},
                                                             "409": {"/errors/not-left-yet", "/errors/already-cleared"}}),
     ("/parties/{party_id}", "get"): ("parties", {"404": {"/errors/no-such-party"}}),
-        ("/settings", "get"): ("settings", {}),
+    ("/settings", "get"): ("settings", {}),
+    ("/healthz", "get"): ("settings", {}),
 }
 
 
@@ -105,6 +110,21 @@ def test_framework_errors_are_problem_json_too(client):
     assert r.status_code == 405 and r.headers["content-type"].startswith(PROBLEM)
     assert r.json()["type"] == "/errors/method-not-allowed" and r.json()["title"] == "Method not allowed"
     assert r.headers["allow"] == "GET", "the Allow header the framework sets is kept"
+
+
+def test_health_reads_the_database_and_a_failure_is_the_one_500(app, client):
+    statements = []
+    event.listen(app.state.engine, "before_cursor_execute", lambda *a: statements.append(a[2]))
+    assert client.get("/healthz").json() == {"status": "ok"}
+    assert "SELECT 1" in statements, "health makes a round trip through the session"
+
+    class Unreachable:
+        def execute(self, *_):
+            raise OperationalError("SELECT 1", {}, Exception("unable to open database file"))
+
+    app.dependency_overrides[get_session] = lambda: Unreachable()
+    r = client.get("/healthz")
+    assert r.status_code == 500 and r.json()["type"] == "/errors/internal" and "unable to open" not in r.text
 
 
 def test_services_and_rules_load_without_fastapi():

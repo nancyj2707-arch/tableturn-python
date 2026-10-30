@@ -13,5 +13,5 @@ class Settings(BaseSettings):
     default_quote_minutes: int = 40  # the wait every party is quoted
     small_party_upgrade: Upgrade = "when_nobody_larger_waits"    # may a party take a table with more seats than covers
     seed_dir: str = "seed"
-    host: str = "0.0.0.0"  # bind every interface
+    host: str = "0.0.0.0"  # bind every interface so the kitchen screen reaches it
     port: int = Field(default=8080, ge=1, le=65535)
