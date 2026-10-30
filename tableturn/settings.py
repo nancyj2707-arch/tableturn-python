@@ -1,5 +1,5 @@
-"""One settings object, read once at start-up. Nothing is hard-coded.
-Every field here has a default; the environment can change it."""
+"""One settings object, read once at start-up. Nothing is hard-coded; an env-file can feed it.
+Every field here is listed in .env.example."""
 from typing import Literal
 
 from pydantic import Field
