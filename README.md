@@ -13,7 +13,7 @@ A restaurant waitlist: parties quoted a wait, seated by size, tables turning ove
 - [x] Ticket 5 · The table turns
 - [x] Ticket 6 · A board nobody can wipe
 - [x] Ticket 7 · One file becomes an app
-- [ ] Ticket 8 · The rule table, and then the rule changes
+- [x] Ticket 8 · The rule table, and then the rule changes
 - [ ] Ticket 9 · It runs on the machine by the till
 - [ ] Ticket 10 · It survives the nightly power cut
 

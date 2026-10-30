@@ -12,11 +12,13 @@ from ..errors import (
     NoSuchSeating,
     NoSuchTable,
     NotLeftYet,
+    Overtaking,
     TableNotCleared,
     TableTooSmall,
 )
 from ..ids import party_internal, party_public, seating_internal
 from ..models import Branch, DiningTable, Party, Seating
+from ..settings import Settings
 from . import events
 
 def _party(session: Session, branch: Branch, public_id: str) -> Party:
@@ -42,9 +44,29 @@ def _seating(session: Session, branch: Branch, public_id: str) -> Seating:
     return seating
 
 
-def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, clock: Clock) -> Seating:
+def check_upgrade(session: Session, party: Party, table: DiningTable, settings: Settings) -> None:
+    """A party may take a table with more seats than covers only as the setting allows — by default, only
+    when no waiting party with more covers than this one could be seated at that table."""
+    if table.seats <= party.covers or settings.small_party_upgrade == "always":
+        return
+    if settings.small_party_upgrade == "never":
+        raise Overtaking(f"{party_public(party.id)} ({party.covers}) may not take {table.no} ({table.seats} seats): "
+                         f"smaller parties never take a larger table")
+    larger = session.scalar(
+        select(Party)
+        .where(Party.branch_id == party.branch_id, Party.state == "waiting", Party.id != party.id,
+               Party.covers > party.covers, Party.covers <= table.seats)
+        .order_by(Party.joined_at, Party.id)
+        .limit(1)
+    )
+    if larger is not None:
+        raise Overtaking(f"{party_public(larger.id)} ({larger.covers}) is waiting and fits {table.no}; seat them first",
+                         must_seat_first=party_public(larger.id))
+
+
+def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, clock: Clock, settings: Settings) -> Seating:
     # The order of checks is fixed so that a test can target each refusal — party, table, already seated,
-    # cleared, fits.
+    # cleared, fits, then the fairness rule.
     party = _party(session, branch, party_public_id)
     table = _table(session, branch, table_no)
     if party.state != "waiting":
@@ -56,6 +78,7 @@ def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, 
         raise TableNotCleared(f"{table.no} has not been cleared since {party_public(current.party_id)} left")
     if table.seats < party.covers:
         raise TableTooSmall(f"{table.no} seats {table.seats}; the party has {party.covers} covers")
+    check_upgrade(session, party, table, settings)
 
     now = clock.now()
     seating = Seating(branch_id=branch.id, party_id=party.id, table_id=table.id, seated_at=now)

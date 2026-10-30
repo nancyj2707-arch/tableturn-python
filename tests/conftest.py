@@ -15,8 +15,8 @@ T0 = datetime(2026, 9, 27, 19, 10, tzinfo=timezone.utc)      # Sunday, ten past 
 
 def make_settings(tmp_path: Path, **overrides) -> Settings:
     db = (tmp_path / "tableturn-test.db").as_posix()
-    values = {"database_url": f"sqlite:///{db}", "seed_dir": str(ROOT / "seed"),
-              "default_quote_minutes": 40}
+    values = {"database_url": f"sqlite:///{db}", "seed_dir": str(ROOT / "seed"), "free_window_hours": 48, "default_quote_minutes": 40,
+              "small_party_upgrade": "when_nobody_larger_waits"}
     values.update(overrides)
     return Settings(_env_file=None, **values)
 

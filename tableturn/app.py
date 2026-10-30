@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from .db import init_db, make_engine, make_sessionmaker
 from .handlers import INTERNAL_RESPONSE, VALIDATION_RESPONSE, install_handlers
 from .routers import parties, seatings, tables, waitlist
+from .routers import settings as settings_router
 from .services.seed import seed
 from .settings import Settings
 
@@ -80,7 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     install_handlers(app)
-    for r in (tables.router, waitlist.router, seatings.router, parties.router):
+    for r in (tables.router, waitlist.router, seatings.router, parties.router, settings_router.router):
         app.include_router(r)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")

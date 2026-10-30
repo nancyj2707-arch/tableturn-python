@@ -19,12 +19,13 @@ EXPECTED = {
     ("/waitlist", "post"): ("waitlist", {"400": {"/errors/party-too-big"}, "422": {"/errors/validation"}}),
     ("/seatings", "post"): ("seatings", {"404": {"/errors/no-such-party", "/errors/no-such-table"},
                                          "409": {"/errors/table-too-small", "/errors/already-seated",
-                                                 "/errors/table-not-cleared"},
+                                                                                                  "/errors/table-not-cleared", "/errors/overtaking"},
                                          "422": {"/errors/validation"}}),
     ("/seatings/{seating_id}/leave", "post"): ("seatings", {"404": {"/errors/no-such-seating"}, "409": {"/errors/already-left"}}),
     ("/seatings/{seating_id}/clear", "post"): ("seatings", {"404": {"/errors/no-such-seating"},
                                                             "409": {"/errors/not-left-yet", "/errors/already-cleared"}}),
     ("/parties/{party_id}", "get"): ("parties", {"404": {"/errors/no-such-party"}}),
+        ("/settings", "get"): ("settings", {}),
 }
 
 

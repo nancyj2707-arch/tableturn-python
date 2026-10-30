@@ -64,7 +64,10 @@ def _too_big(client):
     return client.post("/waitlist", json={"name": "Big", "covers": 9}), {"max_covers"}
 
 
-@pytest.mark.parametrize("make", [_too_small, _too_big], ids=["table-too-small", "party-too-big"])
+def _overtaking(client):
+    join(client, 4)
+    return seat(client, join(client, 2)["party_id"], "T11"), {"must_seat_first"}
+@pytest.mark.parametrize("make", [_too_small, _too_big, _overtaking], ids=["table-too-small", "party-too-big", "overtaking"])
 def test_refusal_body_has_exactly_the_documented_shape(client, make):
     r, named = make(client)
     assert r.status_code in (400, 409)

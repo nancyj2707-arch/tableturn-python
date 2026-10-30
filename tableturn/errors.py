@@ -49,6 +49,11 @@ class TableNotCleared(DomainError):
     status, type, title = 409, "/errors/table-not-cleared", "The table has not been cleared"
 
 
+class Overtaking(DomainError):
+    """A smaller party may not take a larger table ahead of a larger party the table would fit."""
+    status, type, title = 409, "/errors/overtaking", "A larger party waiting must be seated first"
+
+
 class AlreadyLeft(DomainError):
     status, type, title = 409, "/errors/already-left", "The party has already left"
 
