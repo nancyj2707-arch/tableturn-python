@@ -1,5 +1,5 @@
 """Seat a party, let it leave, clear the table. Every refusal is raised here, never in a route; every
-change is one transaction."""
+change and its event are one transaction."""
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,7 +17,7 @@ from ..errors import (
 )
 from ..ids import party_internal, party_public, seating_internal
 from ..models import Branch, DiningTable, Party, Seating
-
+from . import events
 
 def _party(session: Session, branch: Branch, public_id: str) -> Party:
     internal = party_internal(public_id)
@@ -64,6 +64,7 @@ def seat(session: Session, branch: Branch, party_public_id: str, table_no: str, 
     table.current_seating_id = seating.id
     party.state = "seated"
     party.waited_minutes = minutes_between(party.joined_at, now)      # stamped once, never recomputed
+    events.record(session, branch, party.id, "seated", now, {"table": table.no, "waited_minutes": party.waited_minutes}, seating_id=seating.id)
     session.commit()
     return seating
 
@@ -76,6 +77,7 @@ def leave(session: Session, branch: Branch, seating_public_id: str, clock: Clock
     seating.left_at = now
     party = session.get(Party, seating.party_id)
     party.state = "left"
+    events.record(session, branch, seating.party_id, "left", now, seating_id=seating.id)
     session.commit()
     return seating
 
@@ -88,12 +90,13 @@ def clear(session: Session, branch: Branch, seating_public_id: str, clock: Clock
         raise AlreadyCleared(f"{seating_public_id} was cleared at {seating.cleared_at:%H:%M}")
     now = clock.now()
     table = session.get(DiningTable, seating.table_id)
-    # One transaction — the seating, the table and the party.
+    # One transaction - the seating, the table and the party, and the event that records it
     seating.cleared_at = now
     seating.turn_minutes = minutes_between(seating.seated_at, seating.left_at)   # what the table earned, not what the server took
     table.current_seating_id = None
     table.cleared_at = now
     party = session.get(Party, seating.party_id)
     party.state = "cleared"
+    events.record(session, branch, seating.party_id, "cleared", now, {"turn_minutes": seating.turn_minutes}, seating_id=seating.id)
     session.commit()
     return seating, table
