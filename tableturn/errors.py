@@ -63,9 +63,10 @@ class AlreadyCleared(DomainError):
 
 # (status, type, title) of the errors the framework raises rather than a service: 422 for a body that fails validation
 # and 400 for a query parameter that does ("filter values outside the enum are 400"), 404/405 for a path or
-# a method the app does not serve (every error is problem+json).
+# a method the app does not serve (every error is problem+json), and the one 500 for anything unexpected.
 VALIDATION_BODY = (422, "/errors/validation", "The request body is not valid")
 VALIDATION_QUERY = (400, "/errors/validation", "Invalid filter value")
+INTERNAL = (500, "/errors/internal", "Something went wrong")
 NOT_FOUND = (404, "/errors/not-found", "No such resource")
 METHOD_NOT_ALLOWED = (405, "/errors/method-not-allowed", "Method not allowed")
 HTTP = "/errors/http"

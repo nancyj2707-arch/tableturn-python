@@ -1,19 +1,60 @@
 """The application: settings read once, the schema created and seeded before the first request, routers mounted,
-one error handler."""
+one error handler, request ids on every request."""
+import copy
+import json
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .db import init_db, make_engine, make_sessionmaker
-from .handlers import install_handlers
+from .handlers import INTERNAL_RESPONSE, VALIDATION_RESPONSE, install_handlers
 from .routers import parties, seatings, tables, waitlist
 from .services.seed import seed
 from .settings import Settings
 
 STATIC = Path(__file__).parent / "static"
+TAGS = [
+    {"name": "tables", "description": "The floor — 22 tables and their derived state"},
+    {"name": "waitlist", "description": "A party joins the list and is quoted a wait"},
+    {"name": "seatings", "description": "Seat, leave, clear — the table turns"},
+    {"name": "parties", "description": "One party and its append-only history"},
+    {"name": "settings", "description": "The rules in force, and health"},
+]
+DESCRIPTION = "A restaurant waitlist: parties quoted a wait, seated by size, tables turning over all evening."
+
+def honest_openapi(app: FastAPI):
+    """Every endpoint declares its error responses: the spec lists what each operation can really answer.
+    FastAPI's stock 422 (HTTPValidationError, application/json) is removed where there is no body to fail — a query
+    parameter that fails is the 400 validation problem the router documents — and replaced by the app's own
+    problem+json where there is one; every operation gains the one 500 the handler gives."""
+
+    def openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = get_openapi(title=app.title, version=app.version, description=app.description,
+                             routes=app.routes, tags=app.openapi_tags)
+        for ops in schema["paths"].values():
+            for op in ops.values():
+                answers = op.setdefault("responses", {})
+                if "requestBody" in op:
+                    answers["422"] = copy.deepcopy(VALIDATION_RESPONSE[422])
+                else:
+                    answers.pop("422", None)
+                answers["500"] = copy.deepcopy(INTERNAL_RESPONSE[500])
+        components = schema.get("components", {}).get("schemas", {})
+        for name in ("HTTPValidationError", "ValidationError"):
+            others = {k: v for k, v in components.items() if k != name}
+            if f"#/components/schemas/{name}" not in json.dumps([schema["paths"], others]):
+                components.pop(name, None)
+        app.openapi_schema = schema
+        return schema
+
+    return openapi
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
@@ -27,10 +68,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
         engine.dispose()
 
-    app = FastAPI(title="TableTurn", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="TableTurn", version="0.1.0", lifespan=lifespan, openapi_tags=TAGS, description=DESCRIPTION)
     app.state.settings = settings
     app.state.engine = engine
     app.state.sessionmaker = make_sessionmaker(engine)
+
+    @app.middleware("http")
+    async def request_id_and_log(request: Request, call_next):
+        request.state.request_id = uuid.uuid4().hex[:12]
+        response = await call_next(request)
+        return response
 
     install_handlers(app)
     for r in (tables.router, waitlist.router, seatings.router, parties.router):
@@ -42,6 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def index():
         return FileResponse(STATIC / "index.html")
 
+    app.openapi = honest_openapi(app)
     return app
 
 
